@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pogosians Chat</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      color: white;
+      min-height: 100vh;
+    }
+
+    .centered {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-top: 80px;
+    }
+
+    h1, h2 {
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    input, button {
+      padding: 14px;
+      margin: 8px 0;
+      width: 280px;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      background: #0066ff;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #0044cc;
+    }
+
+    .error {
+      color: #ffcccb;
+      margin-top: 10px;
+    }
+
+    #chatPage {
+      display: none;
+      background: #ece5dd;
+      height: 100vh;
+      color: black;
+    }
+
+    header {
+      background: #075e54;
+      color: white;
+      padding: 15px 20px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #messages {
+      height: calc(100vh - 160px);
+      overflow-y: auto;
+      padding: 20px;
+      background: #fff;
+    }
+
+    .message {
+      background: #dcf8c6;
+      padding: 12px 18px;
+      border-radius: 18px;
+      margin-bottom: 12px;
+      max-width: 70%;
+    }
+
+    .message.own {
+      background: #cce5ff;
+      margin-left: auto;
+    }
+
+    .message .name {
+      font-weight: bold;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: #075e54;
+    }
+
+    .message .time {
+      font-size: 0.7rem;
+      color: #999;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    #chat-form {
+      display: flex;
+      padding: 15px;
+      background: #f0f0f0;
+    }
+
+    #chat-form input {
+      flex: 1;
+      padding: 12px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+    }
+
+    #sendBtn {
+      margin-left: 10px;
+      border-radius: 20px;
+      padding: 12px 20px;
+      border: none;
+      background: #075e54;
+      color: white;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login Page -->
+<div id="loginPage" class="centered">
+  <h1>Welcome Pogospogosian</h1>
+  <h2>Page by Himel</h2>
+  <input type="text" id="classInput" placeholder="Enter your class" />
+  <input type="text" id="nameInput" placeholder="Enter your name" />
+  <input type="password" id="passwordInput" placeholder="Enter chat password" />
+  <button id="loginBtn">Join Chat</button>
+  <div class="error" id="errorMsg"></div>
+</div>
+
+<!-- Chat Page -->
+<div id="chatPage">
+  <header>
+    Pogosians Chat
+    <div id="onlineUsers"></div>
+  </header>
+  <div id="messages"></div>
+  <form id="chat-form">
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <button id="sendBtn" type="submit" disabled>Send</button>
+  </form>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<script>
+  const loginBtn = document.getElementById('loginBtn');
+  const classInput = document.getElementById('classInput');
+  const nameInput = document.getElementById('nameInput');
+  const passwordInput = document.getElementById('passwordInput');
+  const errorMsg = document.getElementById('errorMsg');
+  const loginPage = document.getElementById('loginPage');
+  const chatPage = document.getElementById('chatPage');
+  const messageInput = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const messagesDiv = document.getElementById("messages");
+  const chatForm = document.getElementById("chat-form");
+  const onlineUsersDiv = document.getElementById("onlineUsers");
+
+  let username = "";
+
+  // Firebase config (replace with your actual config)
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const messagesRef = db.ref("pogosians_chat/messages");
+  const onlineRef = db.ref("pogosians_chat/onlineUsers");
+
+  loginBtn.addEventListener('click', () => {
+    const classVal = classInput.value.trim();
+    const nameVal = nameInput.value.trim();
+    const passVal = passwordInput.value;
+
+    if (!classVal || !nameVal || !passVal) {
+      errorMsg.textContent = "সব ঘর পূরণ করুন।";
+      return;
+    }
+
+    if (passVal !== "12345") {
+      errorMsg.textContent = "ভুল পাসওয়ার্ড।";
+      return;
+    }
+
+    username = nameVal;
+    localStorage.setItem("pogosian_name", nameVal);
+    loginPage.style.display = "none";
+    chatPage.style.display = "block";
+
+    const userRef = onlineRef.push();
+    userRef.set({ name: username });
+    userRef.onDisconnect().remove();
+
+    onlineRef.on("value", snapshot => {
+      const users = snapshot.val() || {};
+      onlineUsersDiv.innerHTML = "";
+      for (const uid in users) {
+        const user = users[uid];
+        const div = document.createElement("div");
+        div.textContent = "● " + user.name;
+        div.style.marginLeft = "10px";
+        onlineUsersDiv.appendChild(div);
+      }
+    });
+  });
+
+  messageInput.addEventListener("input", () => {
+    sendBtn.disabled = messageInput.value.trim() === "";
+  });
+
+  chatForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const text = messageInput.value.trim();
+    if (!text) return;
+    sendBtn.disabled = true;
+    messagesRef.push({
+      name: username,
+      text: text,
+      timestamp: Date.now()
+    });
+    messageInput.value = "";
+    sendBtn.disabled = false;
+  });
+
+  messagesRef.on("child_added", snapshot => {
+    const data = snapshot.val();
+    const div = document.createElement("div");
+    div.classList.add("message");
+    if (data.name === username) div.classList.add("own");
+
+    const nameDiv = document.createElement("div");
+    nameDiv.classList.add("name");
+    nameDiv.textContent = data.name;
+    div.appendChild(nameDiv);
+
+    div.appendChild(document.createTextNode(data.text));
+
+    const timeDiv = document.createElement("div");
+    timeDiv.classList.add("time");
+    const time = new Date(data.timestamp);
+    timeDiv.textContent = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    div.appendChild(timeDiv);
+
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+</script>
+</body>
+</html>
