@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pogosians Chat Room</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #ece5dd;
+  }
+  header {
+    background: #075e54;
+    color: white;
+    padding: 15px 20px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+  }
+  #onlineUsers {
+    font-size: 0.9rem;
+    color: #d0f0c0;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .online-dot {
+    width: 11px;
+    height: 11px;
+    background: #25d366;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% {opacity: 1;}
+    50% {opacity: 0.6;}
+  }
+  #messages {
+    flex: 1;
+    padding: 20px 25px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+  }
+  .message {
+    max-width: 70%;
+    margin-bottom: 15px;
+    padding: 12px 18px;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+    word-wrap: break-word;
+    line-height: 1.4;
+    font-size: 0.95rem;
+    color: #222;
+    transition: background-color 0.3s ease;
+  }
+  .message.own {
+    background: #dcf8c6;
+    align-self: flex-end;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  }
+  .message .name {
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #075e54;
+    font-size: 0.85rem;
+  }
+  .message .time {
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 6px;
+    text-align: right;
+  }
+  #chat-form {
+    display: flex;
+    padding: 15px 20px;
+    background: #f0f0f0;
+    border-top: 1px solid #ccc;
+    align-items: center;
+  }
+  #chat-form input[type="text"] {
+    flex: 1;
+    padding: 14px 20px;
+    font-size: 1.1rem;
+    border-radius: 30px;
+    border: 1px solid #ccc;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+  #chat-form input[type="text"]:focus {
+    border-color: #075e54;
+    box-shadow: 0 0 8px rgba(7,94,84,0.4);
+  }
+  #sendBtn {
+    background: #075e54;
+    color: white;
+    border: none;
+    padding: 14px 22px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-left: 15px;
+    transition: background-color 0.3s ease;
+  }
+  #sendBtn:disabled {
+    background: #9ad1bd;
+    cursor: default;
+  }
+  #sendBtn:hover:not(:disabled) {
+    background: #0f8560;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  Pogosians Chat
+  <div id="onlineUsers"></div>
+</header>
+
+<div id="messages"></div>
+
+<form id="chat-form">
+  <input type="text" id="messageInput" placeholder="Type your message here..." autocomplete="off" />
+  <button type="submit" id="sendBtn" disabled>Send</button>
+</form>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<script>
+  // তোমার ফায়ারবেস কনফিগ এখানে বসাও
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  const messagesRef = db.ref("pogosians_chat/messages");
+  const onlineRef = db.ref("pogosians_chat/onlineUsers");
+
+  const username = localStorage.getItem("pogosian_name") || "Anonymous";
+
+  const messagesDiv = document.getElementById("messages");
+  const chatForm = document.getElementById("chat-form");
+  const messageInput = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const onlineUsersDiv = document.getElementById("onlineUsers");
+
+  // Enable/disable send button
+  messageInput.addEventListener("input", () => {
+    sendBtn.disabled = messageInput.value.trim() === "";
+  });
+
+  // Show online users with green dot
+  function updateOnlineUsers(users) {
+    onlineUsersDiv.innerHTML = "";
+    for (const uid in users) {
+      if(users[uid].name){
+        const user = users[uid];
+        const userElem = document.createElement("div");
+        userElem.style.marginLeft = "12px";
+        userElem.style.color = "white";
+        userElem.style.fontWeight = "700";
+        userElem.style.display = "flex";
+        userElem.style.alignItems = "center";
+        userElem.style.whiteSpace = "nowrap";
+        const dot = document.createElement("span");
+        dot.classList.add("online-dot");
+        dot.style.marginRight = "8px";
+        userElem.appendChild(dot);
+        userElem.appendChild(document.createTextNode(user.name));
+        onlineUsersDiv.appendChild(userElem);
+      }
+    }
+  }
+
+  // Online presence: add user to online list and remove on disconnect
+  const userRef = onlineRef.push();
+  userRef.set({ name: username });
+  userRef.onDisconnect().remove();
+
+  onlineRef.on("value", snapshot => {
+    const val = snapshot.val() || {};
+    updateOnlineUsers(val);
+  });
+
+  // Add message to DOM
+  function addMessage(data) {
+    const div = document.createElement("div");
+    div.classList.add("message");
+    if (data.name === username) div.classList.add("own");
+
+    const nameDiv = document.createElement("div");
+    nameDiv.classList.add("name");
+    nameDiv.textContent = data.name;
+
+    div.appendChild(nameDiv);
+
+    div.appendChild(document.createTextNode(data.text));
+
+    const timeDiv = document.createElement("div");
+    timeDiv.classList.add("time");
+    const time = new Date(data.timestamp);
+    timeDiv.textContent = time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    div.appendChild(timeDiv);
+
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
+  // Listen for new messages
+  messagesRef.on("child_added", snapshot => {
+    addMessage(snapshot.val());
+  });
+
+  // Send text message
+  chatForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const text = messageInput.value.trim();
+    if (!text) return;
+    sendBtn.disabled = true;
+
+    messagesRef.push({
+      name: username,
+      type: "text",
+      text: text,
+      timestamp: Date.now()
+    });
+    messageInput.value = "";
+    sendBtn.disabled = false;
+  });
+</script>
+
+</body>
+</html>
